@@ -1,15 +1,5 @@
 Java practical test assignment
 
-The task has two parts:
-1. Using the resources listed below learn what is RESTful API and what are the best practices to implement it 
-2. According to the requirements implement the RESTful API based on the web Spring Boot application: controller, responsible for the resource named Users. 
-
-Resources:
-RESTful API Design. Best Practices in a Nutshell.
-Error Handling for REST with Spring | Baeldung
-Testing in Spring Boot | Baeldunghttps://github.com/ovoskresenskyy/ClearSolutionPracticeTask/tree/master
-Testing | Spring
-
 Requirements:
 1. It has the following fields:
 1.1. Email (required). Add validation against email pattern
