@@ -1,11 +1,11 @@
 package com.example.clearsolutionstesttask.exception;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
-
-@ResponseStatus(HttpStatus.NOT_FOUND)
+/**
+ * Exception thrown when a user with a specific ID is not found.
+ */
 public class UserNotFoundException extends RuntimeException {
-    public UserNotFoundException() {
-        super("User with such id not found");
-    }
+
+  public UserNotFoundException(long id) {
+    super("User with id %s not found".formatted(id));
+  }
 }
