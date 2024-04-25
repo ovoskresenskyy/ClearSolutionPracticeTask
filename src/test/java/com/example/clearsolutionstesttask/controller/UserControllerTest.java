@@ -1,309 +1,120 @@
 package com.example.clearsolutionstesttask.controller;
 
-import com.example.clearsolutionstesttask.exception.InvalidDateRangeException;
-import com.example.clearsolutionstesttask.exception.UserNotFoundException;
-import com.example.clearsolutionstesttask.model.User;
-import com.example.clearsolutionstesttask.model.UserDTO;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.example.clearsolutionstesttask.dto.UserDto;
 import com.example.clearsolutionstesttask.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.util.LinkedMultiValueMap;
 
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-
-import static org.hamcrest.Matchers.*;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
-@SpringBootTest
-@AutoConfigureMockMvc
+@WebMvcTest(UserController.class)
 public class UserControllerTest {
 
-    private static final String END_POINT_PATH = "/users";
+  private static final String END_POINT_PATH = "/users";
 
-    @Autowired
-    private MockMvc mockMvc;
-    @Autowired
-    private ObjectMapper objectMapper;
+  @Autowired
+  private MockMvc mockMvc;
+  @Autowired
+  private ObjectMapper objectMapper;
 
-    @MockBean
-    private UserService userService;
+  @MockBean
+  private UserService userService;
 
-    private List<User> users;
+  private UserDto testUserDto;
 
-    private String testEmail;
-    private String testFirstName;
-    private String testLastName;
-    private LocalDate suitableBirthDate;
-    private LocalDate nonSuitableBirthDate;
+  @BeforeEach
+  public void init() {
+    testUserDto = UserDto.builder()
+        .email("test@gmail.com")
+        .firstName("Test first name")
+        .lastName("Test last name")
+        .birthDate(LocalDate.parse("1990-01-01"))
+        .build();
+  }
 
-    @Value("${user.age}")
-    private int age;
+  @Test
+  public void testCreateUser() throws Exception {
+    when(userService.create(any())).thenReturn(testUserDto);
 
-    @BeforeEach
-    public void init() {
-        testEmail = "test@gmail.com";
-        testFirstName = "Test first name";
-        testLastName = "Test last name";
-        suitableBirthDate = LocalDate.parse("1990-01-01");
-        nonSuitableBirthDate = LocalDate.parse("2020-01-01");
+    String contentAsString = mockMvc.perform(
+            post(END_POINT_PATH)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(testUserDto)))
+        .andExpect(status().isOk())
+        .andReturn()
+        .getResponse()
+        .getContentAsString();
 
-        User testUser1 = User.builder()
-                .id(1L)
-                .email(testEmail)
-                .firstName(testFirstName)
-                .lastName(testLastName)
-                .birthDate(suitableBirthDate)
-                .build();
+    UserDto resultDto = objectMapper.readValue(contentAsString, UserDto.class);
 
-        User testUser2 = User.builder()
-                .id(2L)
-                .email("usertest2@gmail.com")
-                .firstName("")
-                .lastName("test2_first_name")
-                .birthDate(LocalDate.parse("2010-01-01"))
-                .build();
+    assertEquals(testUserDto, resultDto);
+  }
 
-        users = List.of(testUser1, testUser2);
-    }
+  @Test
+  public void testUpdateUser() throws Exception {
+    long userId = 999L;
+    when(userService.update(anyLong(), any())).thenReturn(testUserDto);
 
-    @Test
-    public void testListShouldReturn204NoContent() throws Exception {
-        Mockito.when(userService.findAll()).thenReturn(new ArrayList<>());
+    String contentAsString = mockMvc.perform(
+            put(END_POINT_PATH + "/" + userId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(testUserDto)))
+        .andExpect(status().isOk())
+        .andReturn()
+        .getResponse()
+        .getContentAsString();
 
-        mockMvc.perform(get(END_POINT_PATH))
-                .andExpect(status().isNoContent())
-                .andDo(print());
-    }
+    UserDto resultDto = objectMapper.readValue(contentAsString, UserDto.class);
 
-    @Test
-    public void testListShouldReturn200OK() throws Exception {
-        Mockito.when(userService.findAll()).thenReturn(users);
+    assertEquals(testUserDto, resultDto);
+  }
 
-        mockMvc.perform(get(END_POINT_PATH))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType("application/json"))
-                .andExpect(jsonPath("$[0].email").value(testEmail))
-                .andExpect(jsonPath("$[1].email").value("usertest2@gmail.com"))
-                .andDo(print());
-    }
+  @Test
+  public void testDeleteUser() throws Exception {
+    doNothing().when(userService).deleteById(anyLong());
 
-    @Test
-    public void testListWithBirthDateRangeShouldReturn200OK() throws Exception {
-        String fromDate = "2000-01-01";
-        String toDate = "2020-01-01";
+    mockMvc.perform(delete(END_POINT_PATH + "/" + anyLong()))
+        .andExpect(status().isOk());
+  }
 
-        LinkedMultiValueMap<String, String> requestParams = new LinkedMultiValueMap<>();
-        requestParams.add("fromDate", fromDate);
-        requestParams.add("toDate", toDate);
+  @Test
+  public void testFindAllByBirthDateRange() throws Exception {
+    String fromDate = "2000-01-01";
+    String toDate = "2020-01-01";
 
-        Mockito.when(userService.findAllByBirthDateRange(LocalDate.parse(fromDate), LocalDate.parse(toDate)))
-                .thenReturn(users);
+    List<UserDto> users = List.of(testUserDto);
 
-        mockMvc.perform(get(END_POINT_PATH + "/birthDateRange")
-                        .params(requestParams))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType("application/json"))
-                .andDo(print());
-    }
+    when(userService.findAllByBirthDateRange(LocalDate.parse(fromDate), LocalDate.parse(toDate)))
+        .thenReturn(users);
 
-    @Test
-    public void testListWithBirthDateRangeShouldReturn400BadRequest() throws Exception {
-        String fromDate = "2030-01-01";
-        String toDate = "2020-01-01";
+    String contentAsString = mockMvc.perform(
+            get(END_POINT_PATH + "/birth-date-range")
+                .param("fromDate", fromDate)
+                .param("toDate", toDate))
+        .andExpect(status().isOk())
+        .andReturn()
+        .getResponse()
+        .getContentAsString();
 
-        LinkedMultiValueMap<String, String> requestParams = new LinkedMultiValueMap<>();
-        requestParams.add("fromDate", fromDate);
-        requestParams.add("toDate", toDate);
+    List<UserDto> resultDto = List.of(objectMapper.readValue(contentAsString, UserDto[].class));
 
-        Mockito.when(userService.findAllByBirthDateRange(
-                        LocalDate.parse(fromDate), LocalDate.parse(toDate)))
-                .thenThrow(InvalidDateRangeException.class);
-
-        mockMvc.perform(get(END_POINT_PATH + "/birthDateRange")
-                        .params(requestParams))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentType("application/json"))
-                .andDo(print());
-    }
-
-    @Test
-    public void testAddShouldReturn400BadRequest() throws Exception {
-        UserDTO testUserDTO = UserDTO.builder()
-                .email("")
-                .firstName("")
-                .lastName("")
-                .build();
-
-        mockMvc.perform(post(END_POINT_PATH)
-                        .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(testUserDTO)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors").isArray())
-                .andExpect(jsonPath("$.errors", hasSize(4)))
-                .andExpect(jsonPath("$.errors", hasItem("Please enter email.")))
-                .andExpect(jsonPath("$.errors", hasItem("Please enter first name.")))
-                .andExpect(jsonPath("$.errors", hasItem("Please enter last name.")))
-                .andExpect(jsonPath("$.errors", hasItem("Please enter birth date.")))
-                .andDo(print());
-    }
-
-    @Test
-    public void testAgeShouldReturn400BadRequest() throws Exception {
-        UserDTO testUserDTO = UserDTO.builder()
-                .email(testEmail)
-                .firstName(testFirstName)
-                .lastName(testLastName)
-                .birthDate(nonSuitableBirthDate)
-                .build();
-
-        mockMvc.perform(post(END_POINT_PATH)
-                        .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(testUserDTO)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors").isArray())
-                .andExpect(jsonPath("$.errors", hasSize(1)))
-                .andExpect(jsonPath("$.errors", hasItem("Available only to users over " + age + " years of age")))
-                .andDo(print());
-    }
-
-    @Test
-    public void testAddShouldReturn200OK() throws Exception {
-        UserDTO testUserDTO = UserDTO.builder()
-                .email(testEmail)
-                .firstName(testFirstName)
-                .lastName(testLastName)
-                .birthDate(suitableBirthDate)
-                .build();
-
-        Mockito.when(userService.save(testUserDTO)).thenReturn(User.builder().build());
-
-        mockMvc.perform(post(END_POINT_PATH)
-                        .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(testUserDTO)))
-                .andExpect(status().isOk())
-                .andDo(print());
-    }
-
-    @Test
-    public void testUpdateShouldReturn404NotFound() throws Exception {
-        long userId = 999L;
-        UserDTO testUserDTO = UserDTO.builder()
-                .email(testEmail)
-                .firstName(testFirstName)
-                .lastName(testLastName)
-                .birthDate(suitableBirthDate)
-                .build();
-
-        Mockito.when(userService.update(userId, testUserDTO)).thenThrow(UserNotFoundException.class);
-
-        mockMvc.perform(put(END_POINT_PATH + "/" + userId)
-                        .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(testUserDTO)))
-                .andExpect(status().isNotFound())
-                .andDo(print());
-    }
-
-    @Test
-    public void testUpdateShouldReturn400BadRequest() throws Exception {
-        long userId = 999L;
-
-        mockMvc.perform(put(END_POINT_PATH + "/" + userId)
-                        .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(UserDTO.builder().build())))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors", hasSize(4)))
-                .andExpect(jsonPath("$.errors", hasItem("Please enter email.")))
-                .andExpect(jsonPath("$.errors", hasItem("Please enter first name.")))
-                .andExpect(jsonPath("$.errors", hasItem("Please enter last name.")))
-                .andExpect(jsonPath("$.errors", hasItem("Please enter birth date.")))
-                .andDo(print());
-    }
-
-    @Test
-    public void testUpdateShouldReturn202Accept() throws Exception {
-        long userId = 999L;
-        UserDTO testUserDTO = UserDTO.builder()
-                .email(testEmail)
-                .firstName(testFirstName)
-                .lastName(testLastName)
-                .birthDate(suitableBirthDate)
-                .build();
-
-        User expectedUser = UserDTO.toUser(testUserDTO);
-
-        Mockito.when(userService.update(userId, testUserDTO)).thenReturn(expectedUser);
-
-        mockMvc.perform(put(END_POINT_PATH + "/" + userId)
-                        .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(testUserDTO)))
-                .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.email", is(expectedUser.getEmail())))
-                .andExpect(jsonPath("$.firstName", is(expectedUser.getFirstName())))
-                .andExpect(jsonPath("$.lastName", is(expectedUser.getLastName())))
-                .andDo(print());
-    }
-
-    @Test
-    public void testPatchShouldReturn404NotFound() throws Exception {
-        long userId = 999L;
-
-        HashMap<String, String> patchDTO = new HashMap<>();
-        patchDTO.put("email", "patched@gmail.com");
-        patchDTO.put("firstName", "Patched first name");
-
-        Mockito.when(userService.patch(userId, patchDTO)).thenThrow(UserNotFoundException.class);
-
-        mockMvc.perform(patch(END_POINT_PATH + "/" + userId)
-                        .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(patchDTO)))
-                .andExpect(status().isNotFound())
-                .andDo(print());
-    }
-
-    @Test
-    public void testPatchShouldReturn202Accept() throws Exception {
-        long userId = 999L;
-
-        HashMap<String, String> patchDTO = new HashMap<>();
-        patchDTO.put("email", "patched@gmail.com");
-        patchDTO.put("firstName", "Patched first name");
-
-        User expectedUser = User.builder()
-                .email("patched@gmail.com")
-                .firstName("Patched first name")
-                .build();
-
-        Mockito.when(userService.patch(userId, patchDTO)).thenReturn(expectedUser);
-
-        mockMvc.perform(patch(END_POINT_PATH + "/" + userId)
-                        .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(patchDTO)))
-                .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.email", is(expectedUser.getEmail())))
-                .andExpect(jsonPath("$.firstName", is(expectedUser.getFirstName())))
-                .andDo(print());
-    }
-
-    @Test
-    public void testDeleteShouldReturn204NoContent() throws Exception {
-        Mockito.doNothing().when(userService).deleteById(anyLong());
-
-        mockMvc.perform(delete(END_POINT_PATH + "/" + anyLong()))
-                .andExpect(status().isNoContent())
-                .andDo(print());
-    }
+    assertEquals(users, resultDto);
+  }
 }

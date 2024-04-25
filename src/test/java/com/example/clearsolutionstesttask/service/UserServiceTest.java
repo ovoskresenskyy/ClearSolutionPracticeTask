@@ -1,124 +1,126 @@
 package com.example.clearsolutionstesttask.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.example.clearsolutionstesttask.dto.UserDto;
+import com.example.clearsolutionstesttask.entity.User;
+import com.example.clearsolutionstesttask.exception.InvalidDateRangeException;
 import com.example.clearsolutionstesttask.exception.UserNotFoundException;
-import com.example.clearsolutionstesttask.model.User;
-import com.example.clearsolutionstesttask.model.UserDTO;
+import com.example.clearsolutionstesttask.mapper.UserMapper;
 import com.example.clearsolutionstesttask.repository.UserRepository;
-import org.junit.jupiter.api.Assertions;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Optional;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.*;
-
+/**
+ * Unit tests for the UserService class.
+ */
 @ExtendWith(MockitoExtension.class)
 public class UserServiceTest {
 
-    @Mock
-    private UserRepository userRepository;
+  @Mock
+  private UserRepository userRepository;
+  @Mock
+  private UserMapper mapper;
 
-    @InjectMocks
-    private UserService userService;
+  @InjectMocks
+  private UserService userService;
 
-    private User user;
+  private final long userId = 999L;
+  private User user;
+  private UserDto userDto;
 
-    @BeforeEach
-    public void init() {
-        user = User.builder()
-                .id(1L)
-                .email("test@gmail.com")
-                .firstName("Test first name")
-                .lastName("Test last name")
-                .birthDate(LocalDate.now())
-                .build();
-    }
+  @BeforeEach
+  public void init() {
+    String testEmail = "test@gmail.com";
 
-    @Test
-    public void findAllTest() {
-        List<User> users = List.of(
-                User.builder().id(1L).build(),
-                User.builder().id(2L).build()
-        );
-        Mockito.when(userRepository.findAll()).thenReturn(users);
-        List<User> expectedUsers = userService.findAll();
-        Assertions.assertEquals(expectedUsers, users);
-    }
+    user = User.builder()
+        .id(userId)
+        .email(testEmail)
+        .birthDate(LocalDate.now())
+        .build();
 
-    @Test
-    public void findAllByBirthDateRangeTest() {
-        List<User> users = List.of(
-                User.builder().id(1L).build(),
-                User.builder().id(2L).build()
-        );
-        LocalDate anyDate = Mockito.mock(LocalDate.class);
+    userDto = UserDto.builder()
+        .email(testEmail)
+        .birthDate(LocalDate.now())
+        .build();
+  }
 
-        Mockito.when(userRepository.findAllByBirthDateBetween(anyDate, anyDate))
-                .thenReturn(users);
-        List<User> expectedUsers = userService.findAllByBirthDateRange(anyDate, anyDate);
-        Assertions.assertEquals(expectedUsers, users);
-    }
+  @Test
+  public void testCreate() {
+    when(mapper.toEntity(any(UserDto.class))).thenReturn(user);
+    when(userRepository.save(any())).thenReturn(user);
+    when(mapper.toDto(any(User.class))).thenReturn(userDto);
 
-    @Test
-    public void givenUserObject_whenSave_thenReturnUserObject() {
-        Mockito.when(userRepository.save(any())).thenReturn(user);
-        User expectedUser = userService.save(User.builder().build());
-        Assertions.assertEquals(expectedUser, user);
-    }
+    UserDto resultDto = userService.create(userDto);
 
-    @Test
-    public void givenUserDTOObject_whenSave_thenReturnUserObject() {
-        Mockito.when(userRepository.save(any())).thenReturn(user);
-        User expectedUser = userService.save(UserDTO.builder().build());
-        Assertions.assertEquals(expectedUser, user);
-    }
+    assertEquals(userDto, resultDto);
+  }
 
-    @Test
-    public void givenUserId_whenPatch_thenThrowNotFoundException() {
-        Mockito.when(userRepository.findById(anyLong())).thenThrow(UserNotFoundException.class);
-        Assertions.assertThrows(UserNotFoundException.class, () -> {
-            userService.patch(anyLong(), new HashMap<>());
-        });
-    }
+  @Test
+  public void testUpdate_returnsUserDto() {
+    when(userRepository.findById(anyLong())).thenReturn(Optional.of(user));
+    doNothing().when(mapper).updateEntity(any(UserDto.class), any(User.class));
+    when(userRepository.save(any())).thenReturn(user);
+    when(mapper.toDto(any(User.class))).thenReturn(userDto);
 
-    @Test
-    public void givenUserIdAndPatchData_whenPatch_thenReturnUserObject() {
-        Mockito.when(userRepository.findById(anyLong())).thenReturn(Optional.ofNullable(user));
-        Mockito.when(userRepository.save(any())).thenReturn(user);
-        User expectedUser = userService.patch(anyLong(), new HashMap<>());
-        Assertions.assertEquals(expectedUser, user);
-    }
+    UserDto resultDto = userService.update(userId, userDto);
 
-    @Test
-    public void givenUserId_whenUpdate_thenThrowNotFoundException() {
-        Mockito.when(userRepository.findById(anyLong())).thenThrow(UserNotFoundException.class);
-        Assertions.assertThrows(UserNotFoundException.class, () -> {
-            userService.update(anyLong(), UserDTO.builder().build());
-        });
-    }
+    assertEquals(userDto, resultDto);
+  }
 
-    @Test
-    public void givenUserIdAndUserDTOObject_whenUpdate_thenReturnUserObject() {
-        Mockito.when(userRepository.findById(anyLong())).thenReturn(Optional.ofNullable(user));
-        Mockito.when(userRepository.save(any())).thenReturn(user);
-        User expectedUser = userService.update(anyLong(), UserDTO.builder().build());
-        Assertions.assertEquals(expectedUser, user);
-    }
+  @Test
+  public void testUpdate_throwsUserNotFoundException() {
+    when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
 
-    @Test
-    public void deleteTest() {
-        doNothing().when(userRepository).deleteById(anyLong());
-        userService.deleteById(anyLong());
-        verify(userRepository, times(1)).deleteById(anyLong());
-    }
+    assertThrows(UserNotFoundException.class,
+        () -> userService.update(userId, userDto));
+  }
+
+  @Test
+  public void testDelete() {
+    doNothing().when(userRepository).deleteById(anyLong());
+
+    userService.deleteById(userId);
+
+    verify(userRepository, times(1)).deleteById(anyLong());
+  }
+
+  @Test
+  void findAllByBirthDateRange_ValidDateRange_ReturnsUserDtoList() {
+    List<User> users = List.of(user);
+    List<UserDto> userDtos = List.of(userDto);
+    LocalDate validFromDate = LocalDate.of(1990, 1, 1);
+    LocalDate validToDate = LocalDate.of(2000, 1, 1);
+
+    when(userRepository.findAllByBirthDateBetween(any(), any())).thenReturn(users);
+    when(mapper.toDto(anyList())).thenReturn(userDtos);
+
+    List<UserDto> result = userService.findAllByBirthDateRange(validFromDate, validToDate);
+
+    assertEquals(userDtos, result);
+  }
+
+  @Test
+  void findAllByBirthDateRange_InvalidDateRange_ThrowsInvalidDateRangeException() {
+    LocalDate invalidFromDate = LocalDate.of(2000, 1, 1);
+    LocalDate invalidToDate = LocalDate.of(1990, 1, 1);
+
+    assertThrows(InvalidDateRangeException.class,
+        () -> userService.findAllByBirthDateRange(invalidFromDate, invalidToDate));
+  }
 }
